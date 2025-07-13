@@ -43,8 +43,9 @@ class PoseTransformer(VideoTransformerBase):
         self.confidence_threshold = 0.5
         self.feedback_sensitivity = 0.5
         
-        # Improved state detection variables
-        self.previous_state = 'ready'
+        # Rep state machine variables
+        self.rep_phase = 'waiting_down'  # waiting_down or waiting_up
+        self.last_state = 'ready'
         self.state_stable_frames = 0
         self.last_state_change_time = time.time()
         self.state_confidence = 0.0
@@ -93,45 +94,39 @@ class PoseTransformer(VideoTransformerBase):
                 current_time = time.time()
                 
                 # Improved state detection logic
-                if new_state == self.previous_state:
+                if new_state == self.last_state:
                     self.state_stable_frames += 1
                 else:
                     self.state_stable_frames = 0
-                    self.previous_state = new_state
-                
-                # Calculate state confidence based on stability
+                    self.last_state = new_state
                 self.state_confidence = min(self.state_stable_frames / 3.0, 1.0)
-                
-                # More flexible state change conditions
                 min_stable_frames = 1 if new_state in ['up', 'down'] else 2
-                
-                if self.state_stable_frames >= min_stable_frames:
-                    # Allow state change if it's been stable enough
-                    if new_state != self.exercise_state:
-                        # Check for valid rep transition with improved logic
-                        if new_state == 'up' and self.exercise_state == 'down':
-                            # More forgiving timing - allow faster reps
+
+                # Rep state machine for up/down exercises
+                # Only applies to exercises with up/down motion
+                updown_exercises = [
+                    'pushup', 'squat', 'goblet_squat', 'press', 'row', 'deadlift', 'overhead_squat',
+                    'lateral_raise', 'tricep_extension', 'front_raise', 'curl', 'pullup', 'lunge'
+                ]
+                if self.selected_exercise in updown_exercises:
+                    # Wait for a stable "down" before allowing a rep
+                    if self.rep_phase == 'waiting_down':
+                        if new_state == 'down' and self.state_stable_frames >= min_stable_frames:
+                            self.rep_phase = 'waiting_up'
+                    # Wait for a stable "up" to count a rep
+                    elif self.rep_phase == 'waiting_up':
+                        if new_state == 'up' and self.state_stable_frames >= min_stable_frames:
                             if current_time - self.last_rep_time > 0.4:
                                 self.rep_count += 1
                                 self.total_reps += 1
                                 self.last_rep_time = current_time
-                        
-                        # Update state and track change time
+                            self.rep_phase = 'waiting_down'
+                    # Always update the visible state
+                    self.exercise_state = new_state
+                else:
+                    # For non-up/down exercises, just update state as before
+                    if self.state_stable_frames >= min_stable_frames:
                         self.exercise_state = new_state
-                        self.last_state_change_time = current_time
-                
-                # Handle edge cases for better reliability
-                # If we've been in 'ready' state too long and detect motion, transition
-                if (self.exercise_state == 'ready' and 
-                    new_state in ['up', 'down'] and 
-                    self.state_stable_frames >= 1):
-                    self.exercise_state = new_state
-                
-                # If we detect 'down' state clearly, transition even if not fully stable
-                if (new_state == 'down' and 
-                    self.exercise_state == 'ready' and 
-                    self.state_stable_frames >= 1):
-                    self.exercise_state = new_state
                 
                 self.form_score = form_score
                 self.feedback = feedback
