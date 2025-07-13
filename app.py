@@ -43,9 +43,11 @@ class PoseTransformer(VideoTransformerBase):
         self.confidence_threshold = 0.5
         self.feedback_sensitivity = 0.5
         
-        # Simple improvement: track previous state to avoid rapid switching
+        # Improved state detection variables
         self.previous_state = 'ready'
         self.state_stable_frames = 0
+        self.last_state_change_time = time.time()
+        self.state_confidence = 0.0
         
         # Analysis functions mapping
         self.analysis_funcs = {
@@ -88,27 +90,48 @@ class PoseTransformer(VideoTransformerBase):
             
             if self.selected_exercise in self.analysis_funcs:
                 new_state, form_score, feedback = self.analysis_funcs[self.selected_exercise](landmarks)
+                current_time = time.time()
                 
-                # Simple improvement: require state to be stable for 2 frames before changing
+                # Improved state detection logic
                 if new_state == self.previous_state:
                     self.state_stable_frames += 1
                 else:
                     self.state_stable_frames = 0
                     self.previous_state = new_state
                 
-                # Only change state if it's been stable for 2+ frames
-                if self.state_stable_frames >= 2:
+                # Calculate state confidence based on stability
+                self.state_confidence = min(self.state_stable_frames / 3.0, 1.0)
+                
+                # More flexible state change conditions
+                min_stable_frames = 1 if new_state in ['up', 'down'] else 2
+                
+                if self.state_stable_frames >= min_stable_frames:
+                    # Allow state change if it's been stable enough
                     if new_state != self.exercise_state:
-                        # Original rep counting logic with small improvement
+                        # Check for valid rep transition with improved logic
                         if new_state == 'up' and self.exercise_state == 'down':
-                            current_time = time.time()
-                            # Reduced minimum time from 1 second to 0.6 seconds for better responsiveness
-                            if current_time - self.last_rep_time > 0.6:
+                            # More forgiving timing - allow faster reps
+                            if current_time - self.last_rep_time > 0.4:
                                 self.rep_count += 1
                                 self.total_reps += 1
                                 self.last_rep_time = current_time
                         
+                        # Update state and track change time
                         self.exercise_state = new_state
+                        self.last_state_change_time = current_time
+                
+                # Handle edge cases for better reliability
+                # If we've been in 'ready' state too long and detect motion, transition
+                if (self.exercise_state == 'ready' and 
+                    new_state in ['up', 'down'] and 
+                    self.state_stable_frames >= 1):
+                    self.exercise_state = new_state
+                
+                # If we detect 'down' state clearly, transition even if not fully stable
+                if (new_state == 'down' and 
+                    self.exercise_state == 'ready' and 
+                    self.state_stable_frames >= 1):
+                    self.exercise_state = new_state
                 
                 self.form_score = form_score
                 self.feedback = feedback
@@ -116,13 +139,15 @@ class PoseTransformer(VideoTransformerBase):
         # Convert back to BGR for display
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
         
-        # Add exercise state indicator
+        # Add exercise state indicator with confidence
         cv2.putText(img_bgr, f"State: {self.exercise_state.upper()}", 
                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.putText(img_bgr, f"Reps: {self.rep_count}", 
                    (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
         cv2.putText(img_bgr, f"Score: {self.form_score}%", 
                    (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        cv2.putText(img_bgr, f"Conf: {self.state_confidence:.1f}", 
+                   (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
         
         return img_bgr
 
