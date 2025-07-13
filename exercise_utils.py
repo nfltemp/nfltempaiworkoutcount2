@@ -330,7 +330,6 @@ def analyze_row(landmarks):
 
 def analyze_goblet_squat(landmarks):
     """Analyze goblet squat form and provide feedback."""
-    # Get relevant landmarks
     left_hip = landmarks[23]
     right_hip = landmarks[24]
     left_knee = landmarks[25]
@@ -339,28 +338,36 @@ def analyze_goblet_squat(landmarks):
     right_ankle = landmarks[28]
     left_elbow = landmarks[13]
     right_elbow = landmarks[14]
-    
-    # Calculate angles
+
     left_leg_angle = calculate_angle(left_hip, left_knee, left_ankle)
     right_leg_angle = calculate_angle(right_hip, right_knee, right_ankle)
     arm_angle = calculate_angle(left_elbow, left_hip, right_hip)
-    
-    # Determine state and provide feedback
+    avg_leg_angle = (left_leg_angle + right_leg_angle) / 2
+    avg_hip_y = (left_hip.y + right_hip.y) / 2
+
+    # Hysteresis: require a little more movement to switch states
+    # These values can be tuned further
+    DOWN_THRESHOLD = 105  # was 90
+    UP_THRESHOLD = 150    # was 160
+    # Use hip height as a secondary check (lower y = deeper squat)
+    HIP_DOWN_Y = 0.55
+    HIP_UP_Y = 0.45
+
     form_score = 100
     feedback = ""
     state = "ready"
-    
-    avg_leg_angle = (left_leg_angle + right_leg_angle) / 2
-    
-    if avg_leg_angle < 90:
+
+    # Down state: deep squat or hips low
+    if avg_leg_angle < DOWN_THRESHOLD or avg_hip_y > HIP_DOWN_Y:
         state = "down"
         if abs(left_leg_angle - right_leg_angle) > 15:
             feedback = "Keep your knees aligned"
             form_score -= 20
-        if arm_angle < 45:
+        if arm_angle < 30:
             feedback = "Keep dumbbell close to chest"
             form_score -= 15
-    elif avg_leg_angle > 160:
+    # Up state: nearly straight legs or hips high
+    elif avg_leg_angle > UP_THRESHOLD or avg_hip_y < HIP_UP_Y:
         state = "up"
         if abs(left_leg_angle - right_leg_angle) > 15:
             feedback = "Maintain even weight distribution"
@@ -368,7 +375,7 @@ def analyze_goblet_squat(landmarks):
     else:
         state = "ready"
         feedback = "Lower until thighs are parallel to ground"
-    
+
     return state, form_score, feedback
 
 def analyze_lateral_raise(landmarks):
