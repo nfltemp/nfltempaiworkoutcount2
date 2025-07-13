@@ -14,7 +14,13 @@ from exercise_utils import (
     analyze_pullup,
     analyze_lunge,
     analyze_press,
-    analyze_row
+    analyze_row,
+    analyze_goblet_squat,
+    analyze_lateral_raise,
+    analyze_tricep_extension,
+    analyze_front_raise,
+    analyze_deadlift,
+    analyze_overhead_squat
 )
 
 # Initialize MediaPipe Pose
@@ -37,6 +43,12 @@ class PoseTransformer(VideoTransformerBase):
         self.confidence_threshold = 0.5
         self.feedback_sensitivity = 0.5
         
+        # Improved rep counting variables
+        self.state_history = []
+        self.min_rep_duration = 0.8  # Minimum time for a complete rep
+        self.state_confidence = 0  # How confident we are in current state
+        self.consecutive_frames = 0  # Count consecutive frames in same state
+        
         # Analysis functions mapping
         self.analysis_funcs = {
             'pushup': analyze_pushup,
@@ -46,7 +58,13 @@ class PoseTransformer(VideoTransformerBase):
             'pullup': analyze_pullup,
             'lunge': analyze_lunge,
             'press': analyze_press,
-            'row': analyze_row
+            'row': analyze_row,
+            'goblet_squat': analyze_goblet_squat,
+            'lateral_raise': analyze_lateral_raise,
+            'tricep_extension': analyze_tricep_extension,
+            'front_raise': analyze_front_raise,
+            'deadlift': analyze_deadlift,
+            'overhead_squat': analyze_overhead_squat
         }
 
     def transform(self, frame):
@@ -73,16 +91,36 @@ class PoseTransformer(VideoTransformerBase):
             if self.selected_exercise in self.analysis_funcs:
                 new_state, form_score, feedback = self.analysis_funcs[self.selected_exercise](landmarks)
                 
-                # Update state and count reps
-                if new_state != self.exercise_state:
-                    if new_state == 'up' and self.exercise_state == 'down':
-                        current_time = time.time()
-                        if current_time - self.last_rep_time > 1:  # Prevent double counting
-                            self.rep_count += 1
-                            self.total_reps += 1
-                            self.last_rep_time = current_time
-                    
-                    self.exercise_state = new_state
+                # Improved state tracking and rep counting
+                current_time = time.time()
+                
+                # Track state history for better consistency
+                self.state_history.append(new_state)
+                if len(self.state_history) > 10:  # Keep last 10 states
+                    self.state_history.pop(0)
+                
+                # Count consecutive frames in same state
+                if new_state == self.exercise_state:
+                    self.consecutive_frames += 1
+                else:
+                    self.consecutive_frames = 0
+                
+                # Only change state if we're confident (3+ consecutive frames)
+                if self.consecutive_frames >= 3:
+                    if new_state != self.exercise_state:
+                        # Check for valid rep transition (down -> up)
+                        if new_state == 'up' and self.exercise_state == 'down':
+                            # Ensure minimum rep duration
+                            if current_time - self.last_rep_time > self.min_rep_duration:
+                                # Check if we have a valid down->up transition in history
+                                if 'down' in self.state_history[-5:] and 'up' in self.state_history[-3:]:
+                                    self.rep_count += 1
+                                    self.total_reps += 1
+                                    self.last_rep_time = current_time
+                                    self.state_confidence = 0
+                        
+                        self.exercise_state = new_state
+                        self.state_confidence = 0
                 
                 self.form_score = form_score
                 self.feedback = feedback
@@ -90,13 +128,15 @@ class PoseTransformer(VideoTransformerBase):
         # Convert back to BGR for display
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
         
-        # Add exercise state indicator
+        # Add exercise state indicator with confidence
         cv2.putText(img_bgr, f"State: {self.exercise_state.upper()}", 
                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.putText(img_bgr, f"Reps: {self.rep_count}", 
                    (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
         cv2.putText(img_bgr, f"Score: {self.form_score}%", 
                    (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        cv2.putText(img_bgr, f"Confidence: {self.consecutive_frames}", 
+                   (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
         
         return img_bgr
 
@@ -138,11 +178,24 @@ def main():
     with col1:
         st.subheader("🎥 Live Camera Feed")
         
-        # Exercise selection
+        # Exercise selection with categories
+        exercise_options = {}
+        for key, value in EXERCISES.items():
+            category = value['category']
+            if category not in exercise_options:
+                exercise_options[category] = []
+            exercise_options[category].append((key, f"{value['name']} ({category})"))
+        
+        # Create selectbox with grouped exercises
+        selected_category = st.selectbox(
+            "Select Exercise Category",
+            list(exercise_options.keys())
+        )
+        
         selected_exercise = st.selectbox(
             "Select Exercise",
-            list(EXERCISES.keys()),
-            format_func=lambda x: f"{EXERCISES[x]['name']} ({EXERCISES[x]['category']})"
+            [ex[0] for ex in exercise_options[selected_category]],
+            format_func=lambda x: EXERCISES[x]['name']
         )
         
         # Settings
@@ -249,7 +302,13 @@ def main():
         'pullup': "Pull until chin is over the bar, maintain even arm movement",
         'lunge': "Keep hips level, lower until back knee nearly touches ground",
         'press': "Press weights straight overhead with even arm movement",
-        'row': "Maintain straight back while pulling weights toward chest"
+        'row': "Maintain straight back while pulling weights toward chest",
+        'goblet_squat': "Hold dumbbell close to chest, squat until thighs are parallel",
+        'lateral_raise': "Raise arms to shoulder level, keep slight bend in elbows",
+        'tricep_extension': "Extend arms fully behind head, keep elbows close",
+        'front_raise': "Raise arms to shoulder level, control the movement",
+        'deadlift': "Hinge at hips, keep back straight, stand tall",
+        'overhead_squat': "Keep arms overhead, squat until thighs are parallel"
     }
     
     if selected_exercise in exercise_tips:

@@ -9,7 +9,13 @@ EXERCISES = {
     'pullup': {'name': 'Pull-ups', 'category': 'Bar'},
     'lunge': {'name': 'Lunges', 'category': 'Calisthenics'},
     'press': {'name': 'Shoulder Press', 'category': 'Dumbbell'},
-    'row': {'name': 'Rows', 'category': 'Dumbbell'}
+    'row': {'name': 'Rows', 'category': 'Dumbbell'},
+    'goblet_squat': {'name': 'Goblet Squat', 'category': 'Dumbbell'},
+    'lateral_raise': {'name': 'Lateral Raise', 'category': 'Dumbbell'},
+    'tricep_extension': {'name': 'Tricep Extension', 'category': 'Dumbbell'},
+    'front_raise': {'name': 'Front Raise', 'category': 'Dumbbell'},
+    'deadlift': {'name': 'Dumbbell Deadlift', 'category': 'Dumbbell'},
+    'overhead_squat': {'name': 'Overhead Squat', 'category': 'Dumbbell'}
 }
 
 def calculate_angle(a, b, c):
@@ -319,5 +325,244 @@ def analyze_row(landmarks):
     else:
         state = "ready"
         feedback = "Pull weights toward your chest"
+    
+    return state, form_score, feedback
+
+def analyze_goblet_squat(landmarks):
+    """Analyze goblet squat form and provide feedback."""
+    # Get relevant landmarks
+    left_hip = landmarks[23]
+    right_hip = landmarks[24]
+    left_knee = landmarks[25]
+    right_knee = landmarks[26]
+    left_ankle = landmarks[27]
+    right_ankle = landmarks[28]
+    left_elbow = landmarks[13]
+    right_elbow = landmarks[14]
+    
+    # Calculate angles
+    left_leg_angle = calculate_angle(left_hip, left_knee, left_ankle)
+    right_leg_angle = calculate_angle(right_hip, right_knee, right_ankle)
+    arm_angle = calculate_angle(left_elbow, left_hip, right_hip)
+    
+    # Determine state and provide feedback
+    form_score = 100
+    feedback = ""
+    state = "ready"
+    
+    avg_leg_angle = (left_leg_angle + right_leg_angle) / 2
+    
+    if avg_leg_angle < 90:
+        state = "down"
+        if abs(left_leg_angle - right_leg_angle) > 15:
+            feedback = "Keep your knees aligned"
+            form_score -= 20
+        if arm_angle < 45:
+            feedback = "Keep dumbbell close to chest"
+            form_score -= 15
+    elif avg_leg_angle > 160:
+        state = "up"
+        if abs(left_leg_angle - right_leg_angle) > 15:
+            feedback = "Maintain even weight distribution"
+            form_score -= 20
+    else:
+        state = "ready"
+        feedback = "Lower until thighs are parallel to ground"
+    
+    return state, form_score, feedback
+
+def analyze_lateral_raise(landmarks):
+    """Analyze lateral raise form and provide feedback."""
+    # Get relevant landmarks
+    left_shoulder = landmarks[11]
+    right_shoulder = landmarks[12]
+    left_elbow = landmarks[13]
+    right_elbow = landmarks[14]
+    left_wrist = landmarks[15]
+    right_wrist = landmarks[16]
+    
+    # Calculate angles
+    left_arm_angle = calculate_angle(left_shoulder, left_elbow, left_wrist)
+    right_arm_angle = calculate_angle(right_shoulder, right_elbow, right_wrist)
+    
+    # Determine state and provide feedback
+    form_score = 100
+    feedback = ""
+    state = "ready"
+    
+    avg_arm_angle = (left_arm_angle + right_arm_angle) / 2
+    
+    if avg_arm_angle > 160:
+        state = "up"
+        if abs(left_arm_angle - right_arm_angle) > 15:
+            feedback = "Raise both arms evenly"
+            form_score -= 20
+    elif avg_arm_angle < 90:
+        state = "down"
+        if abs(left_arm_angle - right_arm_angle) > 15:
+            feedback = "Lower both arms together"
+            form_score -= 20
+    else:
+        state = "ready"
+        feedback = "Raise arms to shoulder level"
+    
+    return state, form_score, feedback
+
+def analyze_tricep_extension(landmarks):
+    """Analyze tricep extension form and provide feedback."""
+    # Get relevant landmarks
+    left_shoulder = landmarks[11]
+    right_shoulder = landmarks[12]
+    left_elbow = landmarks[13]
+    right_elbow = landmarks[14]
+    left_wrist = landmarks[15]
+    right_wrist = landmarks[16]
+    
+    # Calculate angles
+    left_arm_angle = calculate_angle(left_shoulder, left_elbow, left_wrist)
+    right_arm_angle = calculate_angle(right_shoulder, right_elbow, right_wrist)
+    
+    # Determine state and provide feedback
+    form_score = 100
+    feedback = ""
+    state = "ready"
+    
+    avg_arm_angle = (left_arm_angle + right_arm_angle) / 2
+    
+    if avg_arm_angle < 60:
+        state = "down"
+        if abs(left_arm_angle - right_arm_angle) > 15:
+            feedback = "Keep both arms moving together"
+            form_score -= 20
+    elif avg_arm_angle > 150:
+        state = "up"
+        if abs(left_arm_angle - right_arm_angle) > 15:
+            feedback = "Extend arms fully and evenly"
+            form_score -= 20
+    else:
+        state = "ready"
+        feedback = "Extend arms fully behind head"
+    
+    return state, form_score, feedback
+
+def analyze_front_raise(landmarks):
+    """Analyze front raise form and provide feedback."""
+    # Get relevant landmarks
+    left_shoulder = landmarks[11]
+    right_shoulder = landmarks[12]
+    left_elbow = landmarks[13]
+    right_elbow = landmarks[14]
+    left_wrist = landmarks[15]
+    right_wrist = landmarks[16]
+    
+    # Calculate angles
+    left_arm_angle = calculate_angle(left_shoulder, left_elbow, left_wrist)
+    right_arm_angle = calculate_angle(right_shoulder, right_elbow, right_wrist)
+    
+    # Determine state and provide feedback
+    form_score = 100
+    feedback = ""
+    state = "ready"
+    
+    avg_arm_angle = (left_arm_angle + right_arm_angle) / 2
+    
+    if avg_arm_angle > 160:
+        state = "up"
+        if abs(left_arm_angle - right_arm_angle) > 15:
+            feedback = "Raise both arms evenly"
+            form_score -= 20
+    elif avg_arm_angle < 90:
+        state = "down"
+        if abs(left_arm_angle - right_arm_angle) > 15:
+            feedback = "Lower both arms together"
+            form_score -= 20
+    else:
+        state = "ready"
+        feedback = "Raise arms to shoulder level"
+    
+    return state, form_score, feedback
+
+def analyze_deadlift(landmarks):
+    """Analyze dumbbell deadlift form and provide feedback."""
+    # Get relevant landmarks
+    left_shoulder = landmarks[11]
+    right_shoulder = landmarks[12]
+    left_hip = landmarks[23]
+    right_hip = landmarks[24]
+    left_knee = landmarks[25]
+    right_knee = landmarks[26]
+    left_ankle = landmarks[27]
+    right_ankle = landmarks[28]
+    
+    # Calculate angles
+    left_leg_angle = calculate_angle(left_hip, left_knee, left_ankle)
+    right_leg_angle = calculate_angle(right_hip, right_knee, right_ankle)
+    back_angle = abs((left_shoulder.y + right_shoulder.y)/2 - (left_hip.y + right_hip.y)/2)
+    
+    # Determine state and provide feedback
+    form_score = 100
+    feedback = ""
+    state = "ready"
+    
+    avg_leg_angle = (left_leg_angle + right_leg_angle) / 2
+    
+    if avg_leg_angle < 90:
+        state = "down"
+        if back_angle > 0.15:
+            feedback = "Keep your back straight"
+            form_score -= 25
+    elif avg_leg_angle > 160:
+        state = "up"
+        if back_angle > 0.15:
+            feedback = "Stand tall with straight back"
+            form_score -= 25
+    else:
+        state = "ready"
+        feedback = "Hinge at hips, keep back straight"
+    
+    return state, form_score, feedback
+
+def analyze_overhead_squat(landmarks):
+    """Analyze overhead squat form and provide feedback."""
+    # Get relevant landmarks
+    left_hip = landmarks[23]
+    right_hip = landmarks[24]
+    left_knee = landmarks[25]
+    right_knee = landmarks[26]
+    left_ankle = landmarks[27]
+    right_ankle = landmarks[28]
+    left_shoulder = landmarks[11]
+    right_shoulder = landmarks[12]
+    left_wrist = landmarks[15]
+    right_wrist = landmarks[16]
+    
+    # Calculate angles
+    left_leg_angle = calculate_angle(left_hip, left_knee, left_ankle)
+    right_leg_angle = calculate_angle(right_hip, right_knee, right_ankle)
+    arm_angle = calculate_angle(left_wrist, left_shoulder, right_shoulder)
+    
+    # Determine state and provide feedback
+    form_score = 100
+    feedback = ""
+    state = "ready"
+    
+    avg_leg_angle = (left_leg_angle + right_leg_angle) / 2
+    
+    if avg_leg_angle < 90:
+        state = "down"
+        if abs(left_leg_angle - right_leg_angle) > 15:
+            feedback = "Keep your knees aligned"
+            form_score -= 20
+        if arm_angle < 160:
+            feedback = "Keep arms overhead"
+            form_score -= 15
+    elif avg_leg_angle > 160:
+        state = "up"
+        if abs(left_leg_angle - right_leg_angle) > 15:
+            feedback = "Maintain even weight distribution"
+            form_score -= 20
+    else:
+        state = "ready"
+        feedback = "Lower until thighs are parallel to ground"
     
     return state, form_score, feedback 
