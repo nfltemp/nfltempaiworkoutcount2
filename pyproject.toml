@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nfltempaiworkoutcount"
+version = "1.0.0"
+description = "AI Fitness Trainer with MediaPipe"
+requires-python = ">=3.8,<3.12"
+dependencies = [
+    "streamlit",
+    "streamlit-webrtc",
+    "numpy",
+    "opencv-python",
+    "mediapipe",
+    "av"
+] 
